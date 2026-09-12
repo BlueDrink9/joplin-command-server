@@ -1,77 +1,138 @@
-import joplin from 'api';
-import { MenuItemLocation } from 'api/types';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import joplin from "api";
+import { MenuItemLocation, SettingItemType } from "api/types";
+import * as fs from "fs-extra";
+import * as os from "os";
+import * as path from "path";
 
-const COMMAND_NAME = 'commandServerRunCommand';
-const MENU_ITEM_NAME = 'commandServerRunMenuItem';
-const ACCELERATOR = 'CmdOrCtrl+Alt+Shift+J';
+const COMMAND_SERVER_DIR_NAME = "joplin-command-server";
 
-function getCommunicationDir(): string {
-    const username = os.userInfo().username || 'default';
-    return path.join(os.tmpdir(), `joplin-command-server-${username}`);
+interface CommandRequest {
+  uuid: string;
+  commandId: string;
+  args?: any[];
+  waitForFinish?: boolean;
+  returnCommandOutput?: boolean;
+}
+
+interface CommandResponse {
+  uuid: string;
+  returnValue: any;
+  warnings: string[];
+  error: string | null;
+}
+
+function getCommunicationDirPath(): string {
+  const tmpDir = os.tmpdir();
+  const suffix =
+    typeof process.getuid === "function" ? `-${process.getuid()}` : "";
+  return path.join(tmpDir, `${COMMAND_SERVER_DIR_NAME}${suffix}`);
+}
+
+async function handleCommandExecution() {
+  const commDir = getCommunicationDirPath();
+  const requestPath = path.join(commDir, "request.json");
+  const responsePath = path.join(commDir, "response.json");
+
+  console.log(
+    `[Joplin Command Server] Trigger received. Looking for request.json at: ${requestPath}`,
+  );
+
+  if (!(await fs.pathExists(requestPath))) {
+    console.warn(
+      `[Joplin Command Server] Warning: Trigger received, but request.json does NOT exist at: ${requestPath}`,
+    );
+    return;
+  }
+
+  let request: CommandRequest;
+  try {
+    const raw = await fs.readFile(requestPath, "utf8");
+    console.log(`[Joplin Command Server] Read request payload: ${raw}`);
+    request = JSON.parse(raw);
+  } catch (err) {
+    console.error("[Joplin Command Server] Failed to read request.json:", err);
+    return;
+  }
+
+  const {
+    uuid,
+    commandId,
+    args = [],
+    waitForFinish = false,
+    returnCommandOutput = false,
+  } = request;
+
+  console.log(
+    `[Joplin Command Server] Invoking Joplin command '${commandId}' (uuid: ${uuid}) with args:`,
+    args,
+  );
+
+  let returnValue: any = null;
+  let error: string | null = null;
+  const warnings: string[] = [];
+
+  const executeCmd = () => joplin.commands.execute(commandId, ...args);
+
+  if (waitForFinish || returnCommandOutput) {
+    try {
+      const res = await executeCmd();
+      if (returnCommandOutput) {
+        returnValue = res ?? null;
+      }
+    } catch (err: any) {
+      error = err.message || String(err);
+    }
+  } else {
+    executeCmd().catch((err) => {
+      console.error(
+        `[Joplin Command Server] Async error executing '${commandId}':`,
+        err,
+      );
+    });
+  }
+
+  const responsePayload = {
+    uuid,
+    returnValue: returnValue ?? null,
+    warnings: warnings ?? [],
+    error: error ?? null,
+  };
+
+  try {
+    // '\n required for Talon's read_json_with_timeout to recognize completion
+    const jsonString = JSON.stringify(responsePayload) + "\n";
+    await fs.writeFile(responsePath, jsonString, "utf8");
+    console.log(`[Joplin Command Server] response.json written successfully.`);
+  } catch (err) {
+    console.error("[Joplin Command Server] Error writing response.json:", err);
+  }
 }
 
 joplin.plugins.register({
-    onStart: async function () {
-        const commDir = getCommunicationDir();
-        const requestFile = path.join(commDir, 'request.json');
+  onStart: async () => {
+    const commDir = getCommunicationDirPath();
+    await fs.ensureDir(commDir);
+    await fs.ensureDir(path.join(commDir, "signals"));
 
-        // Ensure IPC directory exists
-        try {
-            if (!fs.existsSync(commDir)) {
-                fs.mkdirSync(commDir, { recursive: true });
-            }
-        } catch (err) {
-            console.error('[Command Server] Failed to create IPC directory:', err);
-            return;
-        }
+    console.info(
+      `[Joplin Command Server] Initialized communication directory at: ${commDir}`,
+    );
 
-        // Register the execution trigger command
-        await joplin.commands.register({
-            name: COMMAND_NAME,
-            label: 'Command Server: Run Command',
-            execute: async () => {
-                if (!fs.existsSync(requestFile)) {
-                    return;
-                }
+    await joplin.commands.register({
+      name: "joplinExecuteRpcCommand",
+      label: "Joplin RPC Command Trigger",
+      iconName: "fas fa-terminal",
+      execute: async () => {
+        await handleCommandExecution();
+      },
+    });
 
-                try {
-                    const content = fs.readFileSync(requestFile, 'utf8').trim();
-                    if (!content) return;
-
-                    // Remove file immediately to avoid replay execution
-                    try {
-                        fs.unlinkSync(requestFile);
-                    } catch (_) {}
-
-                    const payload = JSON.parse(content);
-
-                    // Drop requests older than 3 seconds
-                    if (payload.timestamp && Date.now() - payload.timestamp > 3000) {
-                        console.warn('[Command Server] Expired request ignored');
-                        return;
-                    }
-
-                    if (payload.commandId) {
-                        const args = Array.isArray(payload.args) ? payload.args : [];
-                        await joplin.commands.execute(payload.commandId, ...args);
-                    }
-                } catch (err) {
-                    console.error('[Command Server] Error processing command:', err);
-                }
-            },
-        });
-
-        // Register menu item to bind the shortcut accelerator
-        await joplin.views.menuItems.create(
-            MENU_ITEM_NAME,
-            COMMAND_NAME,
-            MenuItemLocation.Tools,
-            { accelerator: ACCELERATOR }
-        );
-
-        console.info(`[Command Server] File RPC ready at ${commDir} via ${ACCELERATOR}`);
-    },
+    await joplin.views.menuItems.create(
+      "joplinRpcTriggerMenuItem",
+      "joplinExecuteRpcCommand",
+      MenuItemLocation.Tools,
+      // Default Talon community RPC shortcut
+      { accelerator: "CmdOrCtrl+Shift+F17" },
+    );
+  },
 });
