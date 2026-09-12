@@ -1,13 +1,13 @@
-import { JoplinViews as JoplinViewsImplementation } from '../BasePlatformImplementation';
-import Plugin from '../Plugin';
-import { PluginStore } from '../ViewController';
-import JoplinViewsDialogs from './JoplinViewsDialogs';
-import JoplinViewsMenuItems from './JoplinViewsMenuItems';
-import JoplinViewsMenus from './JoplinViewsMenus';
-import JoplinViewsToolbarButtons from './JoplinViewsToolbarButtons';
-import JoplinViewsPanels from './JoplinViewsPanels';
-import JoplinViewsNoteList from './JoplinViewsNoteList';
-import JoplinViewsEditors from './JoplinViewsEditor';
+import { JoplinViews as JoplinViewsImplementation } from "../BasePlatformImplementation";
+import Plugin from "../Plugin";
+import { PluginStore } from "../ViewController";
+import JoplinViewsDialogs from "./JoplinViewsDialogs";
+import JoplinViewsMenuItems from "./JoplinViewsMenuItems";
+import JoplinViewsMenus from "./JoplinViewsMenus";
+import JoplinViewsToolbarButtons from "./JoplinViewsToolbarButtons";
+import JoplinViewsPanels from "./JoplinViewsPanels";
+import JoplinViewsNoteList from "./JoplinViewsNoteList";
+import JoplinViewsEditors from "./JoplinViewsEditor";
 /**
  * This namespace provides access to view-related services.
  *
@@ -24,22 +24,26 @@ import JoplinViewsEditors from './JoplinViewsEditor';
  * sending messages or displaying context menu. Refer to [[WebviewApi]] for the full documentation.
  */
 export default class JoplinViews {
-    private store;
-    private plugin;
-    private panels_;
-    private menuItems_;
-    private menus_;
-    private toolbarButtons_;
-    private dialogs_;
-    private editors_;
-    private noteList_;
-    private implementation_;
-    constructor(implementation: JoplinViewsImplementation, plugin: Plugin, store: PluginStore);
-    get dialogs(): JoplinViewsDialogs;
-    get panels(): JoplinViewsPanels;
-    get editors(): JoplinViewsEditors;
-    get menuItems(): JoplinViewsMenuItems;
-    get menus(): JoplinViewsMenus;
-    get toolbarButtons(): JoplinViewsToolbarButtons;
-    get noteList(): JoplinViewsNoteList;
+  private store;
+  private plugin;
+  private panels_;
+  private menuItems_;
+  private menus_;
+  private toolbarButtons_;
+  private dialogs_;
+  private editors_;
+  private noteList_;
+  private implementation_;
+  constructor(
+    implementation: JoplinViewsImplementation,
+    plugin: Plugin,
+    store: PluginStore,
+  );
+  get dialogs(): JoplinViewsDialogs;
+  get panels(): JoplinViewsPanels;
+  get editors(): JoplinViewsEditors;
+  get menuItems(): JoplinViewsMenuItems;
+  get menus(): JoplinViewsMenus;
+  get toolbarButtons(): JoplinViewsToolbarButtons;
+  get noteList(): JoplinViewsNoteList;
 }

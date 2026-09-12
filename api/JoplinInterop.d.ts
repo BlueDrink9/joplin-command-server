@@ -1,4 +1,4 @@
-import { ExportModule, ImportModule } from './types';
+import { ExportModule, ImportModule } from "./types";
 /**
  * Provides a way to create modules to import external data into Joplin or to export notes into any arbitrary format.
  *
@@ -15,6 +15,6 @@ import { ExportModule, ImportModule } from './types';
  * modules on mobile, there is no GUI to activate them.
  */
 export default class JoplinInterop {
-    registerExportModule(module: ExportModule): Promise<void>;
-    registerImportModule(module: ImportModule): Promise<void>;
+  registerExportModule(module: ExportModule): Promise<void>;
+  registerImportModule(module: ImportModule): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import { FilterHandler } from '../../../eventManager';
+import { FilterHandler } from "../../../eventManager";
 /**
  * @ignore
  *
@@ -6,6 +6,6 @@ import { FilterHandler } from '../../../eventManager';
  * so for now disable filters.
  */
 export default class JoplinFilters {
-    on(name: string, callback: FilterHandler): Promise<void>;
-    off(name: string, callback: FilterHandler): Promise<void>;
+  on(name: string, callback: FilterHandler): Promise<void>;
+  off(name: string, callback: FilterHandler): Promise<void>;
 }

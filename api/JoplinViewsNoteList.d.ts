@@ -1,6 +1,6 @@
-import { Store } from 'redux';
-import Plugin from '../Plugin';
-import { ListRenderer } from './noteListType';
+import { Store } from "redux";
+import Plugin from "../Plugin";
+import { ListRenderer } from "./noteListType";
 /**
  * This API allows you to customise how each note in the note list is rendered.
  * The renderer you implement follows a unidirectional data flow.
@@ -35,8 +35,8 @@ import { ListRenderer } from './noteListType';
  * <span class="platform-desktop">desktop</span>
  */
 export default class JoplinViewsNoteList {
-    private plugin_;
-    private store_;
-    constructor(plugin: Plugin, store: Store);
-    registerRenderer(renderer: ListRenderer): Promise<void>;
+  private plugin_;
+  private store_;
+  constructor(plugin: Plugin, store: Store);
+  registerRenderer(renderer: ListRenderer): Promise<void>;
 }

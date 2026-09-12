@@ -1,6 +1,6 @@
-import { MenuItem, MenuItemLocation } from './types';
-import Plugin from '../Plugin';
-import { PluginStore } from '../ViewController';
+import { MenuItem, MenuItemLocation } from "./types";
+import Plugin from "../Plugin";
+import { PluginStore } from "../ViewController";
 /**
  * Allows creating menus.
  *
@@ -9,13 +9,18 @@ import { PluginStore } from '../ViewController';
  * <span class="platform-desktop">desktop</span>
  */
 export default class JoplinViewsMenus {
-    private store;
-    private plugin;
-    constructor(plugin: Plugin, store: PluginStore);
-    private registerCommandAccelerators;
-    /**
-     * Creates a new menu from the provided menu items and place it at the given location. As of now, it is only possible to place the
-     * menu as a sub-menu of the application build-in menus.
-     */
-    create(id: string, label: string, menuItems: MenuItem[], location?: MenuItemLocation): Promise<void>;
+  private store;
+  private plugin;
+  constructor(plugin: Plugin, store: PluginStore);
+  private registerCommandAccelerators;
+  /**
+   * Creates a new menu from the provided menu items and place it at the given location. As of now, it is only possible to place the
+   * menu as a sub-menu of the application build-in menus.
+   */
+  create(
+    id: string,
+    label: string,
+    menuItems: MenuItem[],
+    location?: MenuItemLocation,
+  ): Promise<void>;
 }

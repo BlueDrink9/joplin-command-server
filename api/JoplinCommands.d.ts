@@ -1,5 +1,5 @@
-import { Command } from './types';
-import Plugin from '../Plugin';
+import { Command } from "./types";
+import Plugin from "../Plugin";
 /**
  * This class allows executing or registering new Joplin commands. Commands
  * can be executed or associated with
@@ -61,42 +61,42 @@ import Plugin from '../Plugin';
  *
  */
 export default class JoplinCommands {
-    private plugin_;
-    constructor(plugin_: Plugin);
-    /**
-     * Executes the given command.
-     *
-     * The command can take any number of arguments, and the supported
-     * arguments will vary based on the command. For custom commands, this
-     * is the `args` passed to the `execute()` function. For built-in
-     * commands, you can find the supported arguments by checking the links
-     * above.
-     *
-     * ```typescript
-     * // Create a new note in the current notebook:
-     * await joplin.commands.execute('newNote');
-     *
-     * // Create a new sub-notebook under the provided notebook
-     * // Note: internally, notebooks are called "folders".
-     * await joplin.commands.execute('newFolder', "SOME_FOLDER_ID");
-     * ```
-     */
-    execute(commandName: string, ...args: any[]): Promise<any | void>;
-    /**
-     * Registers a new command.
-     *
-     * ```typescript
-     * // Register a new commmand called "testCommand1"
-     *
-     * await joplin.commands.register({
-     *     name: 'testCommand1',
-     *     label: 'My Test Command 1',
-     *     iconName: 'fas fa-music',
-     *     execute: () => {
-     *         alert('Testing plugin command 1');
-     *     },
-     * });
-     * ```
-     */
-    register(command: Command): Promise<void>;
+  private plugin_;
+  constructor(plugin_: Plugin);
+  /**
+   * Executes the given command.
+   *
+   * The command can take any number of arguments, and the supported
+   * arguments will vary based on the command. For custom commands, this
+   * is the `args` passed to the `execute()` function. For built-in
+   * commands, you can find the supported arguments by checking the links
+   * above.
+   *
+   * ```typescript
+   * // Create a new note in the current notebook:
+   * await joplin.commands.execute('newNote');
+   *
+   * // Create a new sub-notebook under the provided notebook
+   * // Note: internally, notebooks are called "folders".
+   * await joplin.commands.execute('newFolder', "SOME_FOLDER_ID");
+   * ```
+   */
+  execute(commandName: string, ...args: any[]): Promise<any | void>;
+  /**
+   * Registers a new command.
+   *
+   * ```typescript
+   * // Register a new commmand called "testCommand1"
+   *
+   * await joplin.commands.register({
+   *     name: 'testCommand1',
+   *     label: 'My Test Command 1',
+   *     iconName: 'fas fa-music',
+   *     execute: () => {
+   *         alert('Testing plugin command 1');
+   *     },
+   * });
+   * ```
+   */
+  register(command: Command): Promise<void>;
 }
