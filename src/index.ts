@@ -1,10 +1,11 @@
 import joplin from "api";
-import { MenuItemLocation, SettingItemType } from "api/types";
+import { MenuItemLocation } from "api/types";
 import * as fs from "fs-extra";
 import * as os from "os";
 import * as path from "path";
 
 const COMMAND_SERVER_DIR_NAME = "joplin-command-server";
+const KEEP_ALIVE_INTERVAL_MS = 60_000;
 
 interface CommandRequest {
   uuid: string;
@@ -28,8 +29,32 @@ function getCommunicationDirPath(): string {
   return path.join(tmpDir, `${COMMAND_SERVER_DIR_NAME}${suffix}`);
 }
 
-async function handleCommandExecution() {
+function ensureCommunicationDirs(): string {
   const commDir = getCommunicationDirPath();
+  const signalsDir = path.join(commDir, "signals");
+
+  try {
+    fs.ensureDirSync(commDir, { mode: 0o700 });
+    fs.ensureDirSync(signalsDir, { mode: 0o700 });
+
+    // Enforce 0o700 explicitly on POSIX so default umasks (e.g. 0o002)
+    // do not make the directory group-writable, which Talon's command_client rejects.
+    if (process.platform !== "win32") {
+      fs.chmodSync(commDir, 0o700);
+      fs.chmodSync(signalsDir, 0o700);
+    }
+  } catch (err) {
+    console.error(
+      `[Joplin Command Server] Failed to create/secure IPC directory at ${commDir}:`,
+      err,
+    );
+  }
+
+  return commDir;
+}
+
+async function handleCommandExecution() {
+  const commDir = ensureCommunicationDirs();
   const requestPath = path.join(commDir, "request.json");
   const responsePath = path.join(commDir, "response.json");
 
@@ -91,15 +116,15 @@ async function handleCommandExecution() {
     });
   }
 
-  const responsePayload = {
+  const responsePayload: CommandResponse = {
     uuid,
     returnValue: returnValue ?? null,
-    warnings: warnings ?? [],
-    error: error ?? null,
+    warnings,
+    error,
   };
 
   try {
-    // '\n required for Talon's read_json_with_timeout to recognize completion
+    // '\n' required for Talon's read_json_with_timeout to recognize completion
     const jsonString = JSON.stringify(responsePayload) + "\n";
     await fs.writeFile(responsePath, jsonString, "utf8");
     console.log(`[Joplin Command Server] response.json written successfully.`);
@@ -108,11 +133,20 @@ async function handleCommandExecution() {
   }
 }
 
+// Create the IPC directory immediately when the plugin bundle is evaluated
+ensureCommunicationDirs();
+
 joplin.plugins.register({
   onStart: async () => {
-    const commDir = getCommunicationDirPath();
-    await fs.ensureDir(commDir);
-    await fs.ensureDir(path.join(commDir, "signals"));
+    const commDir = ensureCommunicationDirs();
+
+    // Recreate directories if an OS tmp cleaner (e.g. systemd-tmpfiles) purges /tmp
+    const keepAliveTimer = setInterval(() => {
+      ensureCommunicationDirs();
+    }, KEEP_ALIVE_INTERVAL_MS);
+    if (typeof keepAliveTimer.unref === "function") {
+      keepAliveTimer.unref();
+    }
 
     console.info(
       `[Joplin Command Server] Initialized communication directory at: ${commDir}`,
