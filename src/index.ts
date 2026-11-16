@@ -1,11 +1,14 @@
 import joplin from "api";
-import { MenuItemLocation } from "api/types";
+import { MenuItemLocation, SettingItemSubType, SettingItemType } from "api/types";
 import * as fs from "fs-extra";
 import * as os from "os";
 import * as path from "path";
 
 const COMMAND_SERVER_DIR_NAME = "joplin-command-server";
+const SETTING_TEMP_DIR = "tempDirOverride";
 const KEEP_ALIVE_INTERVAL_MS = 60_000;
+
+let configuredBaseTmpDir = "";
 
 interface CommandRequest {
   uuid: string;
@@ -23,10 +26,10 @@ interface CommandResponse {
 }
 
 function getCommunicationDirPath(): string {
-  const tmpDir = os.tmpdir();
+  const baseDir = configuredBaseTmpDir.trim() || os.tmpdir();
   const suffix =
     typeof process.getuid === "function" ? `-${process.getuid()}` : "";
-  return path.join(tmpDir, `${COMMAND_SERVER_DIR_NAME}${suffix}`);
+  return path.join(baseDir, `${COMMAND_SERVER_DIR_NAME}${suffix}`);
 }
 
 function ensureCommunicationDirs(): string {
@@ -37,8 +40,6 @@ function ensureCommunicationDirs(): string {
     fs.ensureDirSync(commDir, { mode: 0o700 });
     fs.ensureDirSync(signalsDir, { mode: 0o700 });
 
-    // Enforce 0o700 explicitly on POSIX so default umasks (e.g. 0o002)
-    // do not make the directory group-writable, which Talon's command_client rejects.
     if (process.platform !== "win32") {
       fs.chmodSync(commDir, 0o700);
       fs.chmodSync(signalsDir, 0o700);
@@ -58,13 +59,9 @@ async function handleCommandExecution() {
   const requestPath = path.join(commDir, "request.json");
   const responsePath = path.join(commDir, "response.json");
 
-  console.log(
-    `[Joplin Command Server] Trigger received. Looking for request.json at: ${requestPath}`,
-  );
-
   if (!(await fs.pathExists(requestPath))) {
     console.warn(
-      `[Joplin Command Server] Warning: Trigger received, but request.json does NOT exist at: ${requestPath}`,
+      `[Joplin Command Server] Trigger received, but request.json does not exist at: ${requestPath}`,
     );
     return;
   }
@@ -72,7 +69,6 @@ async function handleCommandExecution() {
   let request: CommandRequest;
   try {
     const raw = await fs.readFile(requestPath, "utf8");
-    console.log(`[Joplin Command Server] Read request payload: ${raw}`);
     request = JSON.parse(raw);
   } catch (err) {
     console.error("[Joplin Command Server] Failed to read request.json:", err);
@@ -86,11 +82,6 @@ async function handleCommandExecution() {
     waitForFinish = false,
     returnCommandOutput = false,
   } = request;
-
-  console.log(
-    `[Joplin Command Server] Invoking Joplin command '${commandId}' (uuid: ${uuid}) with args:`,
-    args,
-  );
 
   let returnValue: any = null;
   let error: string | null = null;
@@ -124,23 +115,51 @@ async function handleCommandExecution() {
   };
 
   try {
-    // '\n' required for Talon's read_json_with_timeout to recognize completion
     const jsonString = JSON.stringify(responsePayload) + "\n";
     await fs.writeFile(responsePath, jsonString, "utf8");
-    console.log(`[Joplin Command Server] response.json written successfully.`);
   } catch (err) {
     console.error("[Joplin Command Server] Error writing response.json:", err);
   }
 }
 
-// Create the IPC directory immediately when the plugin bundle is evaluated
+// Create default IPC directory immediately at module evaluation
 ensureCommunicationDirs();
 
 joplin.plugins.register({
   onStart: async () => {
+    await joplin.settings.registerSection("joplinCommandServer", {
+      label: "Command Server",
+      iconName: "fas fa-terminal",
+    });
+
+    await joplin.settings.registerSettings({
+      [SETTING_TEMP_DIR]: {
+        value: "",
+        type: SettingItemType.String,
+        subType: SettingItemSubType.DirectoryPath,
+        section: "joplinCommandServer",
+        public: true,
+        advanced: true,
+        label: "Temporary directory override",
+        description:
+          "Base temp directory used to create the joplin-command-server folder (should match Talon's tempfile.gettempdir() if using with talon). Leave blank to use the system default.",
+      },
+    });
+
+    configuredBaseTmpDir = (await joplin.settings.value(SETTING_TEMP_DIR)) || "";
     const commDir = ensureCommunicationDirs();
 
-    // Recreate directories if an OS tmp cleaner (e.g. systemd-tmpfiles) purges /tmp
+    await joplin.settings.onChange(async (event) => {
+      if (event.keys.includes(SETTING_TEMP_DIR)) {
+        configuredBaseTmpDir =
+          (await joplin.settings.value(SETTING_TEMP_DIR)) || "";
+        const updatedDir = ensureCommunicationDirs();
+        console.info(
+          `[Joplin Command Server] Updated communication directory to: ${updatedDir}`,
+        );
+      }
+    });
+
     const keepAliveTimer = setInterval(() => {
       ensureCommunicationDirs();
     }, KEEP_ALIVE_INTERVAL_MS);
@@ -165,7 +184,6 @@ joplin.plugins.register({
       "joplinRpcTriggerMenuItem",
       "joplinExecuteRpcCommand",
       MenuItemLocation.Tools,
-      // Default Talon community RPC shortcut
       { accelerator: "CmdOrCtrl+Shift+F17" },
     );
   },
