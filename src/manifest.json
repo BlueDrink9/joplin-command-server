@@ -2,7 +2,7 @@
 	"manifest_version": 1,
 	"id": "bluedrink9.CommandServer",
 	"app_min_version": "3.5",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"name": "Joplin Command Server",
 	"description": "Simple Joplin plugin allowing executing of commands in the UI by file-based interprocess communication, allowing remote process control (RPC). Useful for advanced keyboard shortcuts, AI agents, or voice control",
 	"author": "BlueDrink9",
